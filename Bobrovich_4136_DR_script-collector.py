@@ -10,29 +10,20 @@ span_pattern = re.compile("<\/span>(.+)<\/span")
 strip_pattern = re.compile("&.*?;")
 strip_pattern2 = re.compile("<.*?>")
 
+# Регулярное выражение для поиска всех специальных символов
+special_chars_pattern = re.compile(r'[^\w\s-]')
+
+# Функция для очистки текста книги от специальных символов
+def sanitize_text(text):
+    sanitized_text = special_chars_pattern.sub('', text)
+    sanitized_text = ' '.join(sanitized_text.split())
+    return sanitized_text
+
 # Шаблон для поиска заголовка книги
-title_pattern = re.compile("<div class=title>\n*<h1>(.*?)</h1>", re.DOTALL)
+title_pattern = re.compile(r'<div class="title">\s*<h1>(.*?)</h1>', re.DOTALL)
 
 # Шаблон для поиска автора книги
-author_pattern = re.compile("<div class=author>(.*?)</div>", re.DOTALL)
-
-# Функция для получения общей информации о книге (заголовок и автор)
-def get_info(book, sess):
-    r = sess.get(f"https://ilibrary.ru/text/{book}/p.1/index.html")
-    author = strip_of_shit(author_pattern.findall(r.text))[0]
-    title = strip_of_shit(title_pattern.findall(r.text))[0]
-    return (title, author)
-
-# Функция для получения содержимого одной страницы книги
-def get_page(book, pnum, sess):
-    r = sess.get(f"https://ilibrary.ru/text/{book}/p.{pnum}/index.html")
-    text = text_pattern.findall(r.text)[0]
-    lines = []
-    for t in text.split("\n"):
-        res = "".join(span_pattern.findall(t))
-        if res != "":
-            lines.append(res)
-    return strip_of_shit(lines)
+author_pattern = re.compile(r'<div class="author">(.*?)</div>', re.DOTALL)
 
 # Функция для очистки строк от HTML-сущностей и тегов
 def strip_of_shit(lines):
@@ -42,6 +33,54 @@ def strip_of_shit(lines):
         lines[i] = lines[i].lstrip()
     return lines
 
+# Функция для получения общей информации о книге (заголовок и автор)
+def get_info(book, sess):
+    r = sess.get(f"https://ilibrary.ru/text/{book}/p.1/index.html")
+    try:
+        author = strip_of_shit(author_pattern.findall(r.text))[0]
+    except IndexError:
+        print(f"Не удалось найти автора {book}. Пропускаем...")
+    try:
+        title = strip_of_shit(title_pattern.findall(r.text))[0]
+    except IndexError:
+        print(f"Не удалось найти название книги {book}. Пропускаем...")
+    return (title, author)
+
+# Функция для получения содержимого одной страницы книги
+def get_page(book, pnum, sess):
+    r = sess.get(f"https://ilibrary.ru/text/{book}/p.{pnum}/index.html")
+    
+    # Получение всего текста страницы
+    page_text = r.text
+    
+    # Обрабатываем первый вариант структуры
+    match_first_variant = re.findall('<z><o>(.+?)</o>(.+?)</z>', page_text, flags=re.DOTALL)
+    if match_first_variant:
+        text_lines = []
+        for match in match_first_variant:
+            text_lines.extend(match[0].splitlines())
+            text_lines.extend(match[1].splitlines())
+    
+    # Обрабатываем второй и третий варианты структуры
+    elif '<v>' in page_text:
+        text_lines = []
+        # Разделяем страницу на строки, содержащие теги <v> и </v>
+        v_tags = re.finditer('<v>(.*?)</v>', page_text, flags=re.DOTALL)
+        for tag_match in v_tags:
+            line = tag_match.group(1)
+            # Удаляем любые внутренние теги (<s5>, <s8>, <sc> и т.п.)
+            cleaned_line = re.sub(r'</?\w+>', '', line)
+            cleaned_line = re.sub(r'<script.*?</script>', '', cleaned_line, flags=re.DOTALL) #!!!
+            text_lines.append(cleaned_line.strip())
+            
+    else:
+        raise ValueError("Неизвестная структура страницы.")
+    
+    # Очищаем строки от HTML-сущностей и лишних символов
+    clean_lines = strip_of_shit(text_lines)
+
+    return clean_lines
+
 # Основная функция для скачивания всей книги
 def get_book(book, session):
     try:
@@ -50,11 +89,12 @@ def get_book(book, session):
         print(f"Error getting info for book {book}, {e}")
         return
     title = info[0]
+    title = sanitize_text(title)
     author = info[1]
+    author = sanitize_text(author)
     
-    title2 = (title[:75] + '..') if len(title) > 40 else title
-    print(f"Book {book}: {title2} - {author}")
-    filestring = "books/"+ author + "/" + title2 + "_" + str(book)
+    print(f"Book {book}: {title} - {author}")
+    filestring = f"books/{author}/{title}_{book}.txt"
     os.makedirs(os.path.dirname(filestring), exist_ok=True)
     f = open(filestring, "w")
     i = 1
@@ -63,8 +103,13 @@ def get_book(book, session):
             p = get_page(book, i, session)
         except:
             break
+        # Здесь фиксируем запись построчно
         for s in p:
-            f.write(s+"\n")
+            if isinstance(s, str):
+                f.write(s + "\n")
+            else:
+                for item in s:
+                    f.write(item + "\n")
         f.write("\n")
         i += 1
     f.close()
@@ -72,5 +117,5 @@ def get_book(book, session):
 # Создаем сессию для запросов
 session = requests.Session()
 # Цикл для обработки книг с номерами от 1 до 4588
-for i in range(1,25):
+for i in range(1,4589):
     get_book(i, session)
