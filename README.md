@@ -9,6 +9,6 @@ After that, the collection was compressed for balance and scalability (books_max
 
 After that, 7 different classification algorithms were launched: NB, SVM, DT, FFBP, RNN, DAN2, CNN (For_diploma_CMs). Using various adjustments, the optimal accuracy values ​​were determined for each classification model (For_diploma_CM_1...7). The best models were those using the SVM classification algorithm.
 
-Then a small software was written, with which you can determine the genre of a work in Russian in the form of text or a file of the format .txt, .pdf, .docx. 
+Then a small software was written (project), with which you can determine the genre of a work in Russian in the form of text or a file of the format .txt, .pdf, .docx. 
 
 Enjoy using it!
