@@ -1,4 +1,4 @@
-# For-a-diploma-1
+# System for classifying texts by literary genre based on a machine learning algorithm model
 
 The For_diploma_script_collector_(1, 3 and 4) scripts parsed a collection of Russian literature works, distributed by genre in txt format (about 19320 works of 7 different genres: Роман, Повесть, Рассказ, Поэма, Пьеса, Статья, Очерк).
 The books were taken from library websites - https://ilibrary.ru and https://lib.ru/.
