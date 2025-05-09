@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Определитель жанра литературного произведения</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <h1>Определитель жанра литературного произведения</h1>
+    <form id="uploadForm" enctype="multipart/form-data" method="post">
+        <label for="manual_text">Введите текст:</label><br>
+        <textarea name="manual_text" rows="4" cols="50" placeholder="Введите текст произведения"></textarea><br>
+        <label for="file">Или выберите файл (.txt, .docx, .pdf):</label><br>
+        <input type="file" name="file" accept=".txt,.docx,.pdf"><br>
+        <button type="submit">Определить жанр</button>
+    </form>
+    <div id="result"></div>
+
+    <!-- Скрипт для отправки формы асинхронно -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        $(document).ready(function(){
+            $('#uploadForm').on('submit', function(event){
+                event.preventDefault();
+                
+                var formData = new FormData(this);
+                $.ajax({
+                    url: '/predict',
+                    type: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function(response){
+                        $('#result').html('<p>'+response.result+'</p>');
+                    },
+                    error: function(error){
+                        console.error('Ошибка:', error.responseJSON.error);
+                        alert('Возникла ошибка!');
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
